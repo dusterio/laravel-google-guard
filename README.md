@@ -16,7 +16,62 @@ And you can of course specify allowed Google users or domains if your applicatio
 ## Dependencies
 
 - Laravel Socialite
+- Laravel 5.3.*
 
+## Installation
+
+First install the package using Packagist:
+```
+$ composer require dusterio/laravel-google-guard
+```
+
+Add the package service provider to your `config/app.php` to `providers` array:
+```php
+Dusterio\LaravelGoogleGuard\Integrations\LaravelServiceProvider::class,
+```
+
+You should see two extra routes after this:
+```bash
+$ php artisan route:list
+| GET|HEAD | auth/google            |                   | Dusterio\LaravelGoogleGuard\Http\LoginController@redirectToProvider     | guest,web    |
+| GET|HEAD | auth/google/callback   |                   | Dusterio\LaravelGoogleGuard\Http\LoginController@handleProviderCallback | guest,web    |
+```
+
+Configure the guard in ```config/auth.php```:
+```php
+    'guards' => [
+        /// Your existing guards
+        /// ...    
+        'google' => [
+            /*
+             * For consistency, return a dummy (not persisted) class holder.
+            */
+            'userClass' => '\App\User',
+
+            /*
+             * Remember users for this number of seconds.
+             */
+            'timeout' => 3600,
+
+            /*
+             * Users that can use the app. If left empty, everybody is allowed.
+             */
+            'whitelist' => [
+                'admin@.',
+            ]
+        ]              
+    ]
+```
+
+Make it a default guard in the same file ```config/auth.php```:
+```php
+        'web' => [
+            'driver' => 'google',
+            'provider' => 'users',
+        ],
+```
+
+That's it – you are ready to go!
 
 ## License
 
