@@ -2,10 +2,8 @@
 
 namespace Dusterio\LaravelGoogleGuard;
 
-use App\User;
 use Illuminate\Auth\GuardHelpers;
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Session\SessionInterface;
 use Laravel\Socialite\Facades\Socialite;
@@ -19,12 +17,19 @@ class GoogleGuard implements StatefulGuard {
     protected $session;
 
     /**
+     * @var string
+     */
+    protected $userClass;
+
+    /**
      * GoogleGuard constructor.
      * @param SessionInterface $session
+     * @param string $userClass
      */
-    public function __construct(SessionInterface $session)
+    public function __construct(SessionInterface $session, $userClass = '\App\User')
     {
         $this->session = $session;
+        $this->userClass = $userClass;
     }
 
     /**
@@ -55,24 +60,26 @@ class GoogleGuard implements StatefulGuard {
     public function user()
     {
         if (! $this->session->has('socialite_token')) return null;
+        if ($this->session->has('google_guard_user')) return $this->session->get('google_guard_user');
 
         try {
             $user = Socialite::driver('google')->userFromToken($this->session->get('socialite_token'));
         } catch (\Exception $e) {
             $this->session->remove('socialite_token');
-            return null;
+            return;
         }
 
-        if (! $user) {
-            $this->session->remove('socialite_token');
-            return null;
-        }
+        if (! $user) return $this->flushSession();
 
-        return (new User())->fill([
+        $userModel = (new $this->userClass)->fill([
             'email' => $user->getEmail(),
             'name' => $user->getName(),
             'token' => $user->token
         ]);
+
+        $this->session->set('google_guard_user', $userModel);
+
+        return $userModel;
     }
 
     /**
@@ -104,6 +111,7 @@ class GoogleGuard implements StatefulGuard {
      */
     public function setUser(Authenticatable $user)
     {
+        $this->session->set('google_guard_user', $user);
         $this->session->set('socialite_token', $user->token);
     }
 
@@ -140,6 +148,7 @@ class GoogleGuard implements StatefulGuard {
      */
     public function login(Authenticatable $user, $remember = false)
     {
+        $this->session->set('google_guard_user', $user);
         $this->session->set('socialite_token', $user->token);
     }
 
@@ -183,6 +192,15 @@ class GoogleGuard implements StatefulGuard {
      */
     public function logout()
     {
+        $this->flushSession();
+    }
+
+    /**
+     * @return null
+     */
+    private function flushSession()
+    {
         $this->session->remove('socialite_token');
+        $this->session->remove('google_guard_user');
     }
 }
