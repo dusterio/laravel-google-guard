@@ -71,6 +71,15 @@ Make it a default guard in the same file ```config/auth.php```:
         ],
 ```
 
+Add your google key and secret to ```config/services.php```, eg.:
+```php
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('APP_URL') . '/auth/google/callback',
+    ],
+```
+
 That's it – you are ready to go!
 
 ## License
