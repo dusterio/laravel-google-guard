@@ -2,6 +2,7 @@
 
 namespace Dusterio\LaravelGoogleGuard;
 
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\GuardHelpers;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\StatefulGuard;
@@ -17,19 +18,39 @@ class GoogleGuard implements StatefulGuard {
     protected $session;
 
     /**
+     * Hydrate a dummy instance of this glass
+     *
      * @var string
      */
     protected $userClass;
 
     /**
+     * Remember user for this amount of seconds.
+     *
+     * @var int
+     */
+    protected $timeout;
+
+    /**
+     * List of allowed user ids.
+     *
+     * @var array
+     */
+    protected $whitelist;
+
+    /**
      * GoogleGuard constructor.
      * @param SessionInterface $session
+     * @param int $timeout
      * @param string $userClass
+     * @param array $whitelist
      */
-    public function __construct(SessionInterface $session, $userClass = '\App\User')
+    public function __construct(SessionInterface $session, $timeout = 3600, $userClass = '\App\User', $whitelist = [])
     {
         $this->session = $session;
+        $this->timeout = $timeout;
         $this->userClass = $userClass;
+        $this->whitelist = $whitelist;
     }
 
     /**
@@ -49,6 +70,8 @@ class GoogleGuard implements StatefulGuard {
      */
     public function guest()
     {
+        $this->checkTimeouts();
+
         return ! $this->session->has('socialite_token');
     }
 
@@ -59,24 +82,19 @@ class GoogleGuard implements StatefulGuard {
      */
     public function user()
     {
+        $this->checkTimeouts();
+
         if (! $this->session->has('socialite_token')) return null;
         if ($this->session->has('google_guard_user')) return $this->session->get('google_guard_user');
 
         try {
             $user = Socialite::driver('google')->userFromToken($this->session->get('socialite_token'));
         } catch (\Exception $e) {
-            $this->session->remove('socialite_token');
-            return;
         }
 
-        if (! $user) return $this->flushSession();
+        if (! isset($user) || ! $user) return $this->flushSession();
 
-        $userModel = (new $this->userClass)->fill([
-            'email' => $user->getEmail(),
-            'name' => $user->getName(),
-            'token' => $user->token
-        ]);
-
+        $userModel = $this->hydrateUserModel($user);
         $this->session->set('google_guard_user', $userModel);
 
         return $userModel;
@@ -150,6 +168,32 @@ class GoogleGuard implements StatefulGuard {
     {
         $this->session->set('google_guard_user', $user);
         $this->session->set('socialite_token', $user->token);
+
+        $remember ? $this->session->set('google_guard_signed_at', time()) : $this->session->remove('google_guard_signed_at');
+    }
+
+    /**
+     * @param $user
+     * @throws AuthorizationException
+     */
+    public function loginUsingSocialite($user)
+    {
+        if (! empty($this->whitelist) && ! in_array($user->getEmail(), $this->whitelist)) throw new AuthorizationException('You are not allowed to access this page');
+
+        $this->login($this->hydrateUserModel($user));
+    }
+
+    /**
+     * @param $user
+     * @return mixed
+     */
+    public function hydrateUserModel($user)
+    {
+        return (new $this->userClass)->fill([
+            'email' => $user->getEmail(),
+            'name' => $user->getName(),
+            'token' => $user->token
+        ]);
     }
 
     /**
@@ -202,5 +246,17 @@ class GoogleGuard implements StatefulGuard {
     {
         $this->session->remove('socialite_token');
         $this->session->remove('google_guard_user');
+        $this->session->remove('google_guard_signed_at');
+    }
+
+    /**
+     * @return null
+     */
+    private function checkTimeouts()
+    {
+        if ($this->session->has('google_guard_signed_at')
+            && time() - $this->session->get('google_guard_signed_at') >= $this->timeout) {
+            $this->flushSession();
+        }
     }
 }
