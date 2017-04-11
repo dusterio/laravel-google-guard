@@ -1,4 +1,8 @@
 # laravel-google-guard
+[![Latest Stable Version](https://poser.pugx.org/dusterio/laravel-google-guard/v/stable)](https://packagist.org/packages/dusterio/laravel-google-guard)
+[![Total Downloads](https://poser.pugx.org/dusterio/laravel-google-guard/downloads)](https://packagist.org/packages/dusterio/laravel-google-guard)
+[![License](https://poser.pugx.org/dusterio/laravel-google-guard/license)](https://packagist.org/packages/dusterio/laravel-google-guard)
+
 Auth guard for Laravel that completely relies on Google Login and doesn't persist
 
 ## Overview
