@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Session\SessionInterface;
 use Laravel\Socialite\Facades\Socialite;
+use Illuminate\Contracts\Session\Session;
 
 class GoogleGuard implements StatefulGuard {
     use GuardHelpers;
@@ -45,7 +46,7 @@ class GoogleGuard implements StatefulGuard {
      * @param string $userClass
      * @param array $whitelist
      */
-    public function __construct(SessionInterface $session, $timeout = 3600, $userClass = '\App\User', $whitelist = [])
+    public function __construct(Session $session, $timeout = 3600, $userClass = '\App\User', $whitelist = [])
     {
         $this->session = $session;
         $this->timeout = $timeout;
@@ -95,7 +96,7 @@ class GoogleGuard implements StatefulGuard {
         if (! isset($user) || ! $user) return $this->flushSession();
 
         $userModel = $this->hydrateUserModel($user);
-        $this->session->set('google_guard_user', $userModel);
+        $this->session->put('google_guard_user', $userModel);
 
         return $userModel;
     }
@@ -129,8 +130,8 @@ class GoogleGuard implements StatefulGuard {
      */
     public function setUser(Authenticatable $user)
     {
-        $this->session->set('google_guard_user', $user);
-        $this->session->set('socialite_token', $user->token);
+        $this->session->put('google_guard_user', $user);
+        $this->session->put('socialite_token', $user->token);
     }
 
     /**
@@ -166,10 +167,10 @@ class GoogleGuard implements StatefulGuard {
      */
     public function login(Authenticatable $user, $remember = false)
     {
-        $this->session->set('google_guard_user', $user);
-        $this->session->set('socialite_token', $user->token);
+        $this->session->put('google_guard_user', $user);
+        $this->session->put('socialite_token', $user->token);
 
-        $remember ? $this->session->set('google_guard_signed_at', time()) : $this->session->remove('google_guard_signed_at');
+        $remember ? $this->session->put('google_guard_signed_at', time()) : $this->session->remove('google_guard_signed_at');
     }
 
     /**
